@@ -1,9 +1,13 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Cause = require('../models/Cause');
 const User = require('../models/User');
 const Order = require('../models/Order');
 const { authenticateToken, authorizeRoles } = require('../utils/jwt');
+
+// Get the SponsorSchema directly from the Cause model
+const SponsorSchema = mongoose.model('Cause').schema.path('sponsors').schema;
 
 // Get all causes
 router.get('/', async (req, res, next) => {
@@ -657,6 +661,15 @@ router.post('/sponsor', async (req, res, next) => {
       });
     }
 
+    // Validate causeId format
+    if (!mongoose.Types.ObjectId.isValid(causeId)) {
+      console.log('Invalid cause ID format:', causeId);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid cause ID format'
+      });
+    }
+
     // Find the cause
     console.log('Looking for cause with ID:', causeId);
     const cause = await Cause.findById(causeId);
@@ -691,9 +704,8 @@ router.post('/sponsor', async (req, res, next) => {
     const unitPrice = 10;
     const amount = quantity * unitPrice;
 
-    // Add sponsor to the cause with more details
-    console.log('Adding sponsor to cause with amount:', amount);
-    cause.sponsors.push({
+    // Create sponsor object with required fields
+    const sponsorData = {
       name: sponsorName,
       email: sponsorEmail,
       phone: sponsorPhone,
@@ -704,13 +716,30 @@ router.post('/sponsor', async (req, res, next) => {
       orderId: orderId,
       status: 'approved', // Auto-approve since payment is verified
       createdAt: new Date()
-    });
+    };
+    
+    // Add userId field if it's required by the schema but not provided
+    // This is a workaround for the schema requirement
+    if (SponsorSchema.obj.userId && SponsorSchema.obj.userId.type) {
+      // Use a placeholder ID for non-authenticated sponsors
+      sponsorData.userId = mongoose.Types.ObjectId('000000000000000000000000');
+    }
+    
+    // Add sponsor to the cause
+    console.log('Adding sponsor to cause with amount:', amount);
+    cause.sponsors.push(sponsorData);
     
     // Update the cause's raised amount
     cause.raised = (cause.raised || 0) + amount;
     console.log('Updated cause raised amount to:', cause.raised);
 
-    // Update cause status if needed (this will be handled by the pre-save hook)
+    // Update cause status if goal is reached
+    if (cause.raised >= cause.goal && cause.status === 'open') {
+      cause.status = 'sponsored';
+      console.log('Cause status updated to sponsored');
+    }
+
+    // Save the updated cause
     await cause.save();
 
     // Return success response
@@ -728,7 +757,18 @@ router.post('/sponsor', async (req, res, next) => {
 
   } catch (error) {
     console.error('Sponsorship error:', error);
-    next(error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
+    // Send a more detailed error response
+    res.status(500).json({
+      success: false,
+      message: 'Failed to process sponsorship',
+      error: error.message
+    });
   }
 });
 
