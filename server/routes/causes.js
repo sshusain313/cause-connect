@@ -691,13 +691,24 @@ router.post('/sponsor', async (req, res, next) => {
     const unitPrice = 10;
     const amount = quantity * unitPrice;
 
-    // Add sponsor to the cause
+    // Add sponsor to the cause with more details
+    console.log('Adding sponsor to cause with amount:', amount);
     cause.sponsors.push({
       name: sponsorName,
+      email: sponsorEmail,
+      phone: sponsorPhone,
       logo: logoUrl || '',
       amount: amount,
-      status: 'approved' // Auto-approve since payment is verified
+      message: message || '',
+      paymentId: paymentId,
+      orderId: orderId,
+      status: 'approved', // Auto-approve since payment is verified
+      createdAt: new Date()
     });
+    
+    // Update the cause's raised amount
+    cause.raised = (cause.raised || 0) + amount;
+    console.log('Updated cause raised amount to:', cause.raised);
 
     // Update cause status if needed (this will be handled by the pre-save hook)
     await cause.save();
