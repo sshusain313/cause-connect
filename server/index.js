@@ -19,25 +19,28 @@ const claimerRoutes = require('./routes/claimers');
 const app = express();
 
 // Middleware
-// Define allowed origins
-const allowedOrigins = process.env.CORS_ORIGIN ? 
-  process.env.CORS_ORIGIN.split(',') : 
-  ['http://localhost:8080', 'https://cause-connect-app.windsurf.build'];
-
-// Configure CORS
+// Simple CORS configuration for testing
 app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
-  },
+  origin: '*',  // Allow all origins for testing
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
+
+// Add CORS headers to all responses as a backup
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', 'https://cause-connect-app.windsurf.build');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
