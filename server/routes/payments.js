@@ -3,6 +3,8 @@ const router = express.Router();
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const Order = require('../models/Order');
+const Cause = require('../models/Cause');
+const { sendPaymentReceiptEmail } = require('../utils/emailService');
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -89,7 +91,7 @@ router.post('/verify', async (req, res) => {
     }
 
     // Update order status
-    await Order.findOneAndUpdate(
+    const updatedOrder = await Order.findOneAndUpdate(
       { orderId: razorpay_order_id },
       { 
         $set: {
@@ -97,8 +99,30 @@ router.post('/verify', async (req, res) => {
           paymentId: razorpay_payment_id,
           sponsorshipDetails: sponsorshipDetails
         }
-      }
+      },
+      { new: true } // Return the updated document
     );
+    
+    // Get cause details for the email
+    if (sponsorshipDetails && sponsorshipDetails.selectedCause) {
+      try {
+        const cause = await Cause.findById(sponsorshipDetails.selectedCause);
+        if (cause && sponsorshipDetails.email) {
+          // Send payment receipt email
+          await sendPaymentReceiptEmail(
+            sponsorshipDetails.email,
+            sponsorshipDetails.organizationName || 'Sponsor',
+            cause.title,
+            sponsorshipDetails.totalAmount || 0,
+            razorpay_payment_id,
+            razorpay_order_id
+          );
+        }
+      } catch (emailError) {
+        // Log email error but don't fail the request
+        console.error('Failed to send payment receipt email:', emailError);
+      }
+    }
 
     res.json({ 
       message: 'Payment verified successfully',

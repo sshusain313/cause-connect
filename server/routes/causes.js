@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Cause = require('../models/Cause');
 const User = require('../models/User');
+const Order = require('../models/Order');
 const { authenticateToken, authorizeRoles } = require('../utils/jwt');
 
 // Get all causes
@@ -252,9 +253,34 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), async (req, res, 
 });
 
 // Toggle cause online status (admin only)
-router.patch('/:id/toggle-status', authenticateToken, authorizeRoles('admin'), async (req, res, next) => {
+router.patch('/:id/toggle-status', authenticateToken, async (req, res, next) => {
   try {
+    // First check if user is admin without using the middleware
+    const User = require('../models/User');
+    const user = await User.findById(req.user.userId);
+    
+    console.log('Toggle status - User info:', {
+      userId: req.user.userId,
+      userFound: !!user,
+      userRole: user ? user.role : 'unknown'
+    });
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+    
+    if (user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admin role required.'
+      });
+    }
+    
     const { id } = req.params;
+    console.log('Toggle status - Cause ID:', id);
     
     const cause = await Cause.findById(id);
     
@@ -269,12 +295,18 @@ router.patch('/:id/toggle-status', authenticateToken, authorizeRoles('admin'), a
     cause.isOnline = !cause.isOnline;
     await cause.save();
     
+    console.log('Toggle status - Success:', {
+      causeId: cause._id,
+      isOnline: cause.isOnline
+    });
+    
     res.status(200).json({
       success: true,
       message: `Cause is now ${cause.isOnline ? 'online' : 'offline'}`,
       cause
     });
   } catch (error) {
+    console.error('Toggle status - Error:', error);
     next(error);
   }
 });
@@ -595,6 +627,81 @@ router.get('/pending-sponsorships', authenticateToken, async (req, res, next) =>
       pendingSponsorships
     });
   } catch (error) {
+    next(error);
+  }
+});
+
+// Sponsor a cause after successful payment
+router.post('/sponsor', async (req, res, next) => {
+  try {
+    const {
+      causeId,
+      sponsorName,
+      sponsorEmail,
+      sponsorPhone,
+      quantity,
+      logoUrl,
+      message,
+      paymentId,
+      orderId
+    } = req.body;
+
+    // Validate required fields
+    if (!causeId || !sponsorName || !quantity || !paymentId || !orderId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields for sponsorship'
+      });
+    }
+
+    // Find the cause
+    const cause = await Cause.findById(causeId);
+    if (!cause) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cause not found'
+      });
+    }
+
+    // Verify the order exists and is paid
+    const order = await Order.findOne({ orderId: orderId, status: 'paid' });
+    if (!order) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or unpaid order'
+      });
+    }
+
+    // Calculate sponsorship amount (10 per tote)
+    const unitPrice = 10;
+    const amount = quantity * unitPrice;
+
+    // Add sponsor to the cause
+    cause.sponsors.push({
+      name: sponsorName,
+      logo: logoUrl || '',
+      amount: amount,
+      status: 'approved' // Auto-approve since payment is verified
+    });
+
+    // Update cause status if needed (this will be handled by the pre-save hook)
+    await cause.save();
+
+    // Return success response
+    res.status(200).json({
+      success: true,
+      message: 'Sponsorship added successfully',
+      cause: {
+        id: cause._id,
+        title: cause.title,
+        status: cause.status,
+        raised: cause.raised,
+        goal: cause.goal
+      }
+    });
+
+  } catch (error) {
+    console.error('Sponsorship error:', error);
     next(error);
   }
 });

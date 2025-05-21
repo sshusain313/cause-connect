@@ -128,8 +128,82 @@ const sendClaimConfirmationEmail = async (email, fullName, causeName, trackingNu
   }
 };
 
+// Send payment receipt email
+const sendPaymentReceiptEmail = async (email, sponsorName, causeName, amount, paymentId, orderId) => {
+  try {
+    const formattedAmount = new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR'
+    }).format(amount);
+    
+    const date = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    const mailOptions = {
+      from: `"CauseConnect" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Your Sponsorship Payment Receipt',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <h2 style="color: #10B981;">Payment Receipt</h2>
+          <p>Dear ${sponsorName},</p>
+          <p>Thank you for your generous sponsorship! Your payment has been successfully processed.</p>
+          
+          <div style="background-color: #f3f4f6; padding: 20px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #374151;">Payment Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0; color: #6B7280;">Date:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0; text-align: right;">${date}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0; color: #6B7280;">Cause:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0; text-align: right;">${causeName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0; color: #6B7280;">Amount:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0; text-align: right; font-weight: bold;">${formattedAmount}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0; color: #6B7280;">Payment ID:</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #e0e0e0; text-align: right; font-family: monospace;">${paymentId}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6B7280;">Order ID:</td>
+                <td style="padding: 8px 0; text-align: right; font-family: monospace;">${orderId}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <p>Your logo will be reviewed by our team within 1-2 business days. Once approved, your sponsorship will be visible on the cause page.</p>
+          <p>The QR code you received will be printed on the totes and linked to your organization.</p>
+          
+          <p>If you have any questions, please don't hesitate to contact us.</p>
+          <p>Thank you for your support!</p>
+          <p>Best regards,<br>The CauseConnect Team</p>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #6B7280; text-align: center;">
+            This is an automated email. Please do not reply directly to this message.
+          </div>
+        </div>
+      `
+    };
+    
+    await transporter.sendMail(mailOptions);
+    console.log(`Payment receipt email sent to ${email}`);
+    return true;
+  } catch (error) {
+    console.error('Error sending payment receipt email:', error);
+    return false;
+  }
+};
+
 module.exports = {
   sendOtpEmail,
   sendMagicLinkEmail,
-  sendClaimConfirmationEmail
+  sendClaimConfirmationEmail,
+  sendPaymentReceiptEmail
 };
