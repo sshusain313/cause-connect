@@ -1,0 +1,26 @@
+{
+  "name": "causeconnect",
+  "version": "1.0.0",
+  "description": "Platform connecting causes with sponsors and claimers",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "server": "cd server && nodemon index.js",
+    "client": "cd app && npm run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "install:all": "npm install && cd server && npm install && cd ../app && npm install",
+    "build": "cd app && npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "cause",
+    "sponsor",
+    "donation",
+    "tote"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "concurrently": "^8.2.1"
+  }
+}
