@@ -63,15 +63,10 @@ app.use('/api/campaigns', campaignRoutes);
 app.use('/api/admin/logo-review', logoReviewAdminRoutes);
 app.use('/api/claimers', claimerRoutes);
 
-// Serve static assets if in production
-if (process.env.NODE_ENV === 'production') {
-  // Set static folder
-  app.use(express.static(path.join(__dirname, '../app/dist')));
-
-  app.get('*', (req, res) => {
-    res.sendFile(path.resolve(__dirname, '../app/dist', 'index.html'));
-  });
-}
+// API root route
+app.get('/', (req, res) => {
+  res.json({ message: 'Welcome to CauseConnect API' });
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
