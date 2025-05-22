@@ -20,7 +20,11 @@ router.get('/', authenticateToken, isAdmin, async (req, res) => {
       .skip(parseInt(skip))
       .limit(parseInt(limit))
       .populate('campaignId', 'title companyName')
-      .populate('sponsorId', 'name');
+      .populate({
+        path: 'sponsorId',
+        model: 'User',
+        select: 'name'
+      });
     
     res.json({ 
       success: true, 
@@ -82,7 +86,11 @@ router.get('/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     const logoReview = await LogoReview.findById(req.params.id)
       .populate('campaignId', 'title companyName logo')
-      .populate('sponsorId', 'name');
+      .populate({
+        path: 'sponsorId',
+        model: 'User',
+        select: 'name'
+      });
     
     if (!logoReview) {
       return res.status(404).json({ success: false, message: 'Logo review not found' });
