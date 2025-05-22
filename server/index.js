@@ -10,9 +10,9 @@ const causeRoutes = require('./routes/causes');
 const claimRoutes = require('./routes/claims');
 const waitlistRoutes = require('./routes/waitlist');
 const paymentRoutes = require('./routes/payments');
-const logoReviewRoutes = require('./routes/admin/logo-reviews');
+const logoReviewsAdminRoutes = require('./routes/admin/logo-reviews');
 const campaignRoutes = require('./routes/campaigns');
-const logoReviewAdminRoutes = require('./routes/logo-review');
+const logoReviewRoutes = require('./routes/logo-review');
 const claimerRoutes = require('./routes/claimers');
 const notificationRoutes = require('./routes/notifications');
 
@@ -85,9 +85,9 @@ app.use('/api/causes', causeRoutes);
 app.use('/api/claims', claimRoutes);
 app.use('/api/waitlist', waitlistRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/admin/logo-reviews', logoReviewRoutes);
+app.use('/api/admin/logo-reviews', logoReviewsAdminRoutes);
 app.use('/api/campaigns', campaignRoutes);
-app.use('/api/admin/logo-review', logoReviewAdminRoutes);
+app.use('/api/logo-review', logoReviewRoutes);
 app.use('/api/claimers', claimerRoutes);
 app.use('/api/notifications', notificationRoutes);
 
