@@ -735,7 +735,7 @@ router.post('/sponsor', async (req, res, next) => {
         message: message || '',
         paymentId: paymentId,
         orderId: orderId,
-        status: 'approved', // Auto-approve since payment is verified
+        status: 'pending', // Set to pending for admin approval even though payment is verified
         createdAt: new Date()
       };
       
