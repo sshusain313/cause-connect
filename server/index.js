@@ -119,6 +119,10 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5051;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-// Seed admin user on startup
+// Seed admin user and logo reviews on startup
 const { seedAdmin } = require('./utils/seedAdmin');
+const { seedLogoReviews } = require('./utils/seedLogoReviews');
+
+// Run seed functions
 seedAdmin();
+seedLogoReviews();
