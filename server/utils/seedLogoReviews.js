@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const LogoReview = require('../models/LogoReview');
 const Campaign = require('../models/Campaign');
-const Sponsor = require('../models/Sponsor');
+const User = require('../models/User');
 
 /**
  * Seed logo reviews for testing
@@ -17,7 +17,7 @@ const seedLogoReviews = async () => {
 
     // Find a campaign and sponsor to associate with the logo reviews
     const campaign = await Campaign.findOne();
-    const sponsor = await Sponsor.findOne();
+    const sponsor = await User.findOne({ role: 'sponsor' });
 
     if (!campaign || !sponsor) {
       console.log('Cannot seed logo reviews: No campaigns or sponsors found');
