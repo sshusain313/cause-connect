@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Sponsorship Alert</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      text-align: center;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #eee;
+    }
+    .logo {
+      max-width: 150px;
+      margin-bottom: 20px;
+    }
+    .content {
+      padding: 20px 0;
+    }
+    .footer {
+      text-align: center;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+      font-size: 12px;
+      color: #666;
+    }
+    .button {
+      display: inline-block;
+      background-color: #10B981;
+      color: white;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      margin-top: 20px;
+    }
+    .details {
+      background-color: #f9f9f9;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .details p {
+      margin: 5px 0;
+    }
+    .highlight {
+      color: #10B981;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="https://causebg.netlify.app/logo.png" alt="CauseConnect Logo" class="logo">
+    <h1>New Sponsorship Alert</h1>
+  </div>
+  
+  <div class="content">
+    <p>Hello Admin,</p>
+    
+    <p>A new sponsorship has been received for <strong>{{causeName}}</strong>.</p>
+    
+    <div class="details">
+      <h3>Sponsorship Details:</h3>
+      <p><strong>Cause:</strong> {{causeName}}</p>
+      <p><strong>Sponsor:</strong> {{sponsorName}}</p>
+      <p><strong>Amount:</strong> ${{amount}}</p>
+      <p><strong>Date:</strong> {{date}}</p>
+    </div>
+    
+    <p>The payment has been verified and the sponsorship has been automatically approved.</p>
+    
+    <a href="https://causebg.netlify.app/admin/sponsorships" class="button">View Admin Dashboard</a>
+    
+    <p>This is an automated notification from the CauseConnect system.</p>
+  </div>
+  
+  <div class="footer">
+    <p>&copy; 2025 CauseConnect. All rights reserved.</p>
+    <p>This is an automated email. Please do not reply to this message.</p>
+  </div>
+</body>
+</html>

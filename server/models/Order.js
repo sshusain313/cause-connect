@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
 const orderSchema = new mongoose.Schema({
   orderId: {
@@ -28,6 +29,14 @@ const orderSchema = new mongoose.Schema({
   },
   paymentId: {
     type: String
+  },
+  causeId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Cause'
+  },
+  userId: {
+    type: Schema.Types.ObjectId,
+    ref: 'User'
   },
   sponsorshipDetails: {
     organizationName: String,

@@ -14,6 +14,7 @@ const logoReviewRoutes = require('./routes/admin/logo-reviews');
 const campaignRoutes = require('./routes/campaigns');
 const logoReviewAdminRoutes = require('./routes/logo-review');
 const claimerRoutes = require('./routes/claimers');
+const notificationRoutes = require('./routes/notifications');
 
 // Create Express app
 const app = express();
@@ -22,8 +23,10 @@ const app = express();
 // CORS configuration for production and development
 const allowedOrigins = [
   'https://cause-connect-app.windsurf.build',
+  'https://causebg.netlify.app',
   'http://localhost:5173',
-  'http://localhost:3000'
+  'http://localhost:3000',
+  'http://localhost:8081'
 ];
 
 app.use(cors({
@@ -86,10 +89,20 @@ app.use('/api/admin/logo-reviews', logoReviewRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/admin/logo-review', logoReviewAdminRoutes);
 app.use('/api/claimers', claimerRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // API root route
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to CauseConnect API' });
+});
+
+// Health check endpoint for Render
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'API is running',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Error handling middleware

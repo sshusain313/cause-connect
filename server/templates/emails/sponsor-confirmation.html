@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sponsorship Confirmation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      text-align: center;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #eee;
+    }
+    .logo {
+      max-width: 150px;
+      margin-bottom: 20px;
+    }
+    .content {
+      padding: 20px 0;
+    }
+    .footer {
+      text-align: center;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+      font-size: 12px;
+      color: #666;
+    }
+    .button {
+      display: inline-block;
+      background-color: #10B981;
+      color: white;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      margin-top: 20px;
+    }
+    .details {
+      background-color: #f9f9f9;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+    .details p {
+      margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="https://causebg.netlify.app/logo.png" alt="CauseConnect Logo" class="logo">
+    <h1>Thank You for Your Sponsorship!</h1>
+  </div>
+  
+  <div class="content">
+    <p>Dear {{sponsorName}},</p>
+    
+    <p>Thank you for sponsoring <strong>{{causeName}}</strong>. Your generous contribution of <strong>${{amount}}</strong> will make a significant impact.</p>
+    
+    <div class="details">
+      <h3>Sponsorship Details:</h3>
+      <p><strong>Cause:</strong> {{causeName}}</p>
+      <p><strong>Amount:</strong> ${{amount}}</p>
+      <p><strong>Date:</strong> {{date}}</p>
+      <p><strong>Payment ID:</strong> {{paymentId}}</p>
+    </div>
+    
+    <p>You can track the progress of this cause and see the impact of your sponsorship by visiting your dashboard.</p>
+    
+    <a href="https://causebg.netlify.app/dashboard/sponsor" class="button">View Your Dashboard</a>
+    
+    <p>If you have any questions about your sponsorship, please don't hesitate to contact our support team.</p>
+    
+    <p>Warm regards,<br>
+    The CauseConnect Team</p>
+  </div>
+  
+  <div class="footer">
+    <p>&copy; 2025 CauseConnect. All rights reserved.</p>
+    <p>This is an automated email. Please do not reply to this message.</p>
+  </div>
+</body>
+</html>
