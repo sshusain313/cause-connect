@@ -1,160 +1,221 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const { isAdmin } = require('../middleware/auth');
 const LogoReview = require('../models/LogoReview');
-// Temporary file storage
-const path = require('path');
-const fs = require('fs');
-const uploadDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+const { authenticateToken, isAdmin } = require('../middleware/auth');
+const mongoose = require('mongoose');
 
-// Configure multer for file uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
-    }
-  },
-});
-
-// Get a logo review by ID
-router.get('/:id', isAdmin, async (req, res) => {
+// Get a specific logo review by ID
+router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const review = await LogoReview.findById(req.params.id)
-      .populate('campaignId')
-      .populate('sponsorId')
-      .lean();
-
-    if (!review) {
-      return res.status(404).json({ message: 'Review not found' });
+    const logoReview = await LogoReview.findById(req.params.id);
+    
+    if (!logoReview) {
+      return res.status(404).json({ success: false, message: 'Logo review not found' });
     }
-
-    res.json(review);
+    
+    res.json({ success: true, data: logoReview });
   } catch (error) {
     console.error('Error fetching logo review:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
-// Update logo review status
-router.patch('/:id', isAdmin, async (req, res) => {
+// Add a comment to a logo review
+router.post('/:id/comment', authenticateToken, async (req, res) => {
   try {
-    const { action, payload } = req.body;
-    const review = await LogoReview.findById(req.params.id);
-
-    if (!review) {
-      return res.status(404).json({ message: 'Review not found' });
+    const { text, screenshot } = req.body;
+    const by = req.user.name || req.user.email;
+    
+    if (!text) {
+      return res.status(400).json({ success: false, message: 'Comment text is required' });
     }
-
-    switch (action) {
-      case 'approve':
-        review.status = 'APPROVED';
-        break;
-      case 'request_changes':
-        review.status = 'CHANGES_REQUESTED';
-        review.comments.push({
-          by: req.user._id,
-          text: payload,
-          at: new Date(),
-        });
-        break;
-      case 'reject':
-        review.status = 'REJECTED';
-        review.comments.push({
-          by: req.user._id,
-          text: payload,
-          at: new Date(),
-        });
-        break;
-      case 'recheck':
-        // Re-run automated checks
-        const checks = await runLogoChecks(review.originalUrl);
-        review.checks = checks;
-        break;
-      default:
-        return res.status(400).json({ message: 'Invalid action' });
+    
+    const logoReview = await LogoReview.findById(req.params.id);
+    
+    if (!logoReview) {
+      return res.status(404).json({ success: false, message: 'Logo review not found' });
     }
-
-    await review.save();
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error updating logo review:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Add a comment with optional screenshot
-router.post('/:id/comment', isAdmin, upload.single('screenshot'), async (req, res) => {
-  try {
-    const review = await LogoReview.findById(req.params.id);
-    if (!review) {
-      return res.status(404).json({ message: 'Review not found' });
-    }
-
-    const comment = {
-      by: req.user._id,
-      text: req.body.text,
-      at: new Date(),
+    
+    const newComment = {
+      by,
+      text,
+      screenshot,
+      at: new Date()
     };
-
-    if (req.file) {
-      // Save file locally
-      const filename = `${Date.now()}-${req.file.originalname}`;
-      const filepath = path.join(uploadDir, filename);
-      fs.writeFileSync(filepath, req.file.buffer);
-      comment.screenshot = `/uploads/${filename}`;
-    }
-
-    review.comments.push(comment);
-    await review.save();
-
-    res.json({ success: true });
+    
+    logoReview.comments.push(newComment);
+    await logoReview.save();
+    
+    res.json({ 
+      success: true, 
+      message: 'Comment added successfully', 
+      data: logoReview 
+    });
   } catch (error) {
-    console.error('Error adding comment:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error adding comment to logo review:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
-// Get all pending reviews
-router.get('/pending', isAdmin, async (req, res) => {
+// Update a logo review status
+router.put('/:id/status', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const reviews = await LogoReview.find({ status: 'PENDING' })
-      .populate('campaignId')
-      .populate('sponsorId')
-      .lean();
-
-    res.json(reviews);
+    const { status } = req.body;
+    
+    if (!status || !['PENDING', 'APPROVED', 'CHANGES_REQUESTED', 'REJECTED'].includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Valid status is required (PENDING, APPROVED, CHANGES_REQUESTED, REJECTED)' 
+      });
+    }
+    
+    const logoReview = await LogoReview.findById(req.params.id);
+    
+    if (!logoReview) {
+      return res.status(404).json({ success: false, message: 'Logo review not found' });
+    }
+    
+    logoReview.status = status;
+    await logoReview.save();
+    
+    res.json({ 
+      success: true, 
+      message: `Logo review status updated to ${status}`, 
+      data: logoReview 
+    });
   } catch (error) {
-    console.error('Error fetching pending reviews:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error updating logo review status:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 
-// Re-run automated checks
-router.post('/:id/recheck', isAdmin, async (req, res) => {
+// Update logo checks
+router.put('/:id/checks', authenticateToken, isAdmin, async (req, res) => {
   try {
-    const review = await LogoReview.findById(req.params.id);
-    if (!review) {
-      return res.status(404).json({ message: 'Review not found' });
+    const { checks } = req.body;
+    
+    if (!checks || !Array.isArray(checks)) {
+      return res.status(400).json({ success: false, message: 'Valid checks array is required' });
     }
-
-    const checks = await runLogoChecks(review.originalUrl);
-    review.checks = checks;
-    await review.save();
-
-    res.json({ success: true, checks });
+    
+    const logoReview = await LogoReview.findById(req.params.id);
+    
+    if (!logoReview) {
+      return res.status(404).json({ success: false, message: 'Logo review not found' });
+    }
+    
+    logoReview.checks = checks;
+    await logoReview.save();
+    
+    res.json({ 
+      success: true, 
+      message: 'Logo checks updated successfully', 
+      data: logoReview 
+    });
   } catch (error) {
-    console.error('Error re-running checks:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error updating logo checks:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
+// Update corrected logo URL
+router.put('/:id/corrected-url', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { correctedUrl } = req.body;
+    
+    if (!correctedUrl) {
+      return res.status(400).json({ success: false, message: 'Corrected URL is required' });
+    }
+    
+    const logoReview = await LogoReview.findById(req.params.id);
+    
+    if (!logoReview) {
+      return res.status(404).json({ success: false, message: 'Logo review not found' });
+    }
+    
+    logoReview.correctedUrl = correctedUrl;
+    await logoReview.save();
+    
+    res.json({ 
+      success: true, 
+      message: 'Corrected URL updated successfully', 
+      data: logoReview 
+    });
+  } catch (error) {
+    console.error('Error updating corrected URL:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
+// Update logo color palette
+router.put('/:id/palette', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { palette } = req.body;
+    
+    if (!palette || !Array.isArray(palette)) {
+      return res.status(400).json({ success: false, message: 'Valid palette array is required' });
+    }
+    
+    const logoReview = await LogoReview.findById(req.params.id);
+    
+    if (!logoReview) {
+      return res.status(404).json({ success: false, message: 'Logo review not found' });
+    }
+    
+    logoReview.palette = palette;
+    await logoReview.save();
+    
+    res.json({ 
+      success: true, 
+      message: 'Logo palette updated successfully', 
+      data: logoReview 
+    });
+  } catch (error) {
+    console.error('Error updating logo palette:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
+// Create a new logo review
+router.post('/', authenticateToken, async (req, res) => {
+  try {
+    const { campaignId, sponsorId, originalUrl } = req.body;
+    
+    if (!campaignId || !sponsorId || !originalUrl) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Campaign ID, Sponsor ID, and Original URL are required' 
+      });
+    }
+    
+    // Validate ObjectIds
+    if (!mongoose.Types.ObjectId.isValid(campaignId) || !mongoose.Types.ObjectId.isValid(sponsorId)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid Campaign ID or Sponsor ID format' 
+      });
+    }
+    
+    const newLogoReview = new LogoReview({
+      campaignId,
+      sponsorId,
+      originalUrl,
+      status: 'PENDING',
+      checks: [],
+      comments: [],
+      palette: []
+    });
+    
+    await newLogoReview.save();
+    
+    res.status(201).json({ 
+      success: true, 
+      message: 'Logo review created successfully', 
+      data: newLogoReview 
+    });
+  } catch (error) {
+    console.error('Error creating logo review:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 });
 

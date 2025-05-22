@@ -1,49 +1,47 @@
 const mongoose = require('mongoose');
-const { Schema } = mongoose;
 
-const LogoReviewSchema = new Schema({
-  campaignId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'Campaign', 
-    required: true, 
-    index: true 
-  },
-  sponsorId: { 
-    type: Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
-  },
-  originalUrl: String,
-  correctedUrl: String,
-  status: { 
-    type: String, 
-    enum: ['PENDING', 'APPROVED', 'CHANGES_REQUESTED', 'REJECTED'], 
-    default: 'PENDING' 
-  },
-  checks: {
-    dpi: Number,
-    format: String,
-    mode: String,
-    transparency: Boolean,
-    palette: [String],
-    contrastRatios: Schema.Types.Mixed
-  },
-  comments: [{
-    by: String,
-    text: String,
-    at: { type: Date, default: Date.now },
-    screenshotUrl: String
-  }],
-  versionHistory: [{
-    url: String,
-    at: { type: Date, default: Date.now }
-  }]
-}, { 
-  timestamps: true 
+const logoCheckSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  passed: { type: Boolean, default: false },
+  message: { type: String, required: true }
 });
 
-// Create indexes for better query performance
-LogoReviewSchema.index({ status: 1 });
-LogoReviewSchema.index({ createdAt: -1 });
+const logoCommentSchema = new mongoose.Schema({
+  by: { type: String, required: true },
+  text: { type: String, required: true },
+  screenshot: { type: String },
+  at: { type: Date, default: Date.now }
+});
 
-module.exports = mongoose.model('LogoReview', LogoReviewSchema);
+const logoReviewSchema = new mongoose.Schema({
+  campaignId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Campaign',
+    required: true 
+  },
+  sponsorId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Sponsor',
+    required: true 
+  },
+  originalUrl: { type: String, required: true },
+  correctedUrl: { type: String },
+  status: { 
+    type: String, 
+    enum: ['PENDING', 'APPROVED', 'CHANGES_REQUESTED', 'REJECTED'],
+    default: 'PENDING'
+  },
+  checks: [logoCheckSchema],
+  comments: [logoCommentSchema],
+  palette: [{ type: String }],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+// Pre-save middleware to update the updatedAt field
+logoReviewSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
+});
+
+module.exports = mongoose.model('LogoReview', logoReviewSchema);
