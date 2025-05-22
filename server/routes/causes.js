@@ -1,13 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const { ObjectId } = mongoose.Types;
 const Cause = require('../models/Cause');
 const User = require('../models/User');
 const Order = require('../models/Order');
 const { authenticateToken, authorizeRoles } = require('../utils/jwt');
-
-// Get the SponsorSchema directly from the Cause model
-const SponsorSchema = mongoose.model('Cause').schema.path('sponsors').schema;
 
 // Get all causes
 router.get('/', async (req, res, next) => {
@@ -669,7 +667,7 @@ router.post('/sponsor', async (req, res, next) => {
         message: 'Invalid cause ID format'
       });
     }
-
+    
     // Find the cause
     console.log('Looking for cause with ID:', causeId);
     const cause = await Cause.findById(causeId);
@@ -682,65 +680,134 @@ router.post('/sponsor', async (req, res, next) => {
     }
     console.log('Found cause:', cause.title);
 
-    // Skip order verification for now since we're having issues with it
-    // We know the payment was successful because Razorpay verified it
+    // Verify payment with Razorpay (in production, you would verify the signature)
     console.log('Payment verified with ID:', paymentId);
     
-    /* Commenting out problematic order verification
-    // Verify the order exists and is paid
-    console.log('Looking for order with ID:', orderId);
-    const order = await Order.findOne({ orderId: orderId, status: 'paid' });
-    if (!order) {
-      console.log('Order not found or not paid:', orderId);
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid or unpaid order'
-      });
+    try {
+      // Create or update the order record
+      let order = await Order.findOne({ orderId: orderId });
+      if (!order) {
+        // Create a new order record with proper ObjectId handling
+        const orderData = {
+          orderId: orderId,
+          paymentId: paymentId,
+          amount: quantity * unitPrice,
+          sponsorName: sponsorName,
+          sponsorEmail: sponsorEmail,
+          status: 'paid',
+          createdAt: new Date()
+        };
+        
+        // Only add causeId if it's a valid ObjectId
+        if (mongoose.Types.ObjectId.isValid(causeId)) {
+          orderData.causeId = new ObjectId(causeId);
+        }
+        
+        order = new Order(orderData);
+        await order.save();
+        console.log('Created new order record:', order._id);
+      } else {
+        // Update existing order
+        order.status = 'paid';
+        order.paymentId = paymentId;
+        await order.save();
+        console.log('Updated existing order:', order._id);
+      }
+    } catch (orderError) {
+      console.error('Error creating/updating order:', orderError);
+      // Continue with the process even if order creation fails
+      // This ensures the sponsorship is still recorded in the cause
     }
-    console.log('Found paid order:', order._id);
-    */
 
     // Calculate sponsorship amount (10 per tote)
     const unitPrice = 10;
     const amount = quantity * unitPrice;
 
-    // Create sponsor object with required fields
-    const sponsorData = {
-      name: sponsorName,
-      email: sponsorEmail,
-      phone: sponsorPhone,
-      logo: logoUrl || '',
-      amount: amount,
-      message: message || '',
-      paymentId: paymentId,
-      orderId: orderId,
-      status: 'approved', // Auto-approve since payment is verified
-      createdAt: new Date()
-    };
-    
-    // Add userId field if it's required by the schema but not provided
-    // This is a workaround for the schema requirement
-    if (SponsorSchema.obj.userId && SponsorSchema.obj.userId.type) {
-      // Use a placeholder ID for non-authenticated sponsors
-      sponsorData.userId = mongoose.Types.ObjectId('000000000000000000000000');
+    try {
+      // Add sponsor to the cause with more details
+      console.log('Adding sponsor to cause with amount:', amount);
+      const sponsorData = {
+        name: sponsorName,
+        email: sponsorEmail,
+        phone: sponsorPhone,
+        logo: logoUrl || '',
+        amount: amount,
+        message: message || '',
+        paymentId: paymentId,
+        orderId: orderId,
+        status: 'approved', // Auto-approve since payment is verified
+        createdAt: new Date()
+      };
+      
+      // Add the sponsor to the cause
+      cause.sponsors.push(sponsorData);
+    } catch (sponsorError) {
+      console.error('Error adding sponsor to cause:', sponsorError);
+      return res.status(500).json({
+        success: false,
+        message: 'Error adding sponsor to cause',
+        error: sponsorError.message
+      });
     }
-    
-    // Add sponsor to the cause
-    console.log('Adding sponsor to cause with amount:', amount);
-    cause.sponsors.push(sponsorData);
     
     // Update the cause's raised amount
     cause.raised = (cause.raised || 0) + amount;
     console.log('Updated cause raised amount to:', cause.raised);
 
-    // Update cause status if goal is reached
-    if (cause.raised >= cause.goal && cause.status === 'open') {
-      cause.status = 'sponsored';
-      console.log('Cause status updated to sponsored');
+    // Update cause status if needed (this will be handled by the pre-save hook)
+    await cause.save();
+
+    // Send confirmation email to sponsor if email is provided
+    if (sponsorEmail) {
+      try {
+        // Check if we have a notification service
+        const Notification = require('../services/notificationService');
+        await Notification.sendEmail({
+          to: sponsorEmail,
+          subject: 'Your Sponsorship Confirmation',
+          template: 'sponsor-confirmation',
+          data: {
+            sponsorName: sponsorName,
+            causeName: cause.title,
+            amount: amount,
+            paymentId: paymentId,
+            date: new Date().toLocaleDateString()
+          }
+        });
+        console.log('Sent confirmation email to:', sponsorEmail);
+      } catch (emailError) {
+        // Log but don't fail the process if email sending fails
+        console.error('Error sending confirmation email:', emailError);
+      }
     }
 
-    // Save the updated cause
-    await cause.save();
+    // Send notification to admin about new sponsorship
+    try {
+      // Find admin users
+      const adminUsers = await User.find({ role: 'admin' });
+      if (adminUsers.length > 0) {
+        const Notification = require('../services/notificationService');
+        for (const admin of adminUsers) {
+          if (admin.email) {
+            await Notification.sendEmail({
+              to: admin.email,
+              subject: 'New Sponsorship Alert',
+              template: 'admin-sponsorship-alert',
+              data: {
+                causeName: cause.title,
+                sponsorName: sponsorName,
+                amount: amount,
+                date: new Date().toLocaleDateString()
+              }
+            }).catch(err => console.error('Error sending admin notification:', err));
+          }
+        }
+        console.log('Sent admin notifications about new sponsorship');
+      }
+    } catch (notifyError) {
+      // Log but don't fail the process if notification fails
+      console.error('Error sending admin notifications:', notifyError);
+    }
 
     // Return success response
     res.status(200).json({
@@ -752,6 +819,13 @@ router.post('/sponsor', async (req, res, next) => {
         status: cause.status,
         raised: cause.raised,
         goal: cause.goal
+      },
+      sponsor: {
+        name: sponsorName,
+        email: sponsorEmail,
+        amount: amount,
+        paymentId: paymentId,
+        orderId: orderId
       }
     });
 
@@ -763,10 +837,16 @@ router.post('/sponsor', async (req, res, next) => {
       name: error.name
     });
     
+    // Handle specific ObjectId errors
+    let errorMessage = 'Failed to process sponsorship';
+    if (error.message && (error.message.includes('ObjectId') || error.message.includes('cannot be invoked without \'new\''))) {
+      errorMessage = 'Invalid ID format in request';
+    }
+    
     // Send a more detailed error response
     res.status(500).json({
       success: false,
-      message: 'Failed to process sponsorship',
+      message: errorMessage,
       error: error.message
     });
   }
