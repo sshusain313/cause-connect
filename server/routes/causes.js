@@ -280,6 +280,88 @@ router.post('/sponsor', async (req, res, next) => {
   }
 });
 
+// Get causes by status - this route must come before /:id to avoid conflicts
+router.get('/status/:status', async (req, res) => {
+  try {
+    const { status } = req.params;
+    
+    // Extract token from headers to check if user is admin
+    const authHeader = req.headers.authorization;
+    let isAdmin = false;
+    
+    if (authHeader) {
+      try {
+        // Verify the token and check if user is admin
+        const token = authHeader.split(' ')[1];
+        const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.userId);
+        isAdmin = user && user.role === 'admin';
+      } catch (err) {
+        // Token verification failed, not an admin
+        console.log('Token verification failed:', err.message);
+      }
+    }
+    
+    // Build the query based on status and admin status
+    let query = { status };
+    
+    // If not admin, only return online causes
+    if (!isAdmin) {
+      query.isOnline = true;
+    }
+    
+    // Find causes by status
+    const causes = await Cause.find(query).sort({ createdAt: -1 });
+    
+    res.status(200).json(causes);
+  } catch (error) {
+    console.error('Error fetching causes by status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
+// Get a single cause by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Validate ID format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid cause ID format'
+      });
+    }
+    
+    // Find the cause by ID
+    const cause = await Cause.findById(id);
+    
+    if (!cause) {
+      return res.status(404).json({
+        success: false,
+        message: 'Cause not found'
+      });
+    }
+    
+    // Return the cause
+    res.status(200).json({
+      success: true,
+      data: cause
+    });
+  } catch (error) {
+    console.error('Error fetching cause by ID:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error: error.message
+    });
+  }
+});
+
 // Submit a new cause for approval
 router.post('/submit', async (req, res) => {
   try {
