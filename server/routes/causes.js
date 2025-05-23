@@ -262,4 +262,68 @@ router.post('/sponsor', async (req, res, next) => {
   }
 });
 
+// Submit a new cause for approval
+router.post('/submit', async (req, res) => {
+  try {
+    console.log('Received cause submission request:', req.body);
+    
+    const {
+      title,
+      description,
+      goal,
+      startDate,
+      endDate,
+      image,
+      submitterName,
+      submitterEmail,
+      submitterPhone
+    } = req.body;
+
+    // Validate required fields
+    if (!title || !description || !goal) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields for cause submission'
+      });
+    }
+
+    // Create a new cause with status 'pending'
+    const newCause = new Cause({
+      title,
+      description,
+      goal: Number(goal),
+      startDate: startDate ? new Date(startDate) : new Date(),
+      endDate: endDate ? new Date(endDate) : null,
+      image: image || '',
+      status: 'pending', // All new causes start as pending for admin approval
+      raised: 0,
+      isOnline: false, // Not online until approved
+      submitter: {
+        name: submitterName || 'Anonymous',
+        email: submitterEmail || '',
+        phone: submitterPhone || ''
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    await newCause.save();
+    console.log('Created new cause:', newCause._id);
+
+    // Return success response
+    res.status(201).json({
+      success: true,
+      message: 'Cause submitted successfully and is pending approval',
+      cause: newCause
+    });
+  } catch (error) {
+    console.error('Cause submission error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to submit cause',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
