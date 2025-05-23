@@ -34,6 +34,14 @@ const logoReviewSchema = new mongoose.Schema({
   checks: [logoCheckSchema],
   comments: [logoCommentSchema],
   palette: [{ type: String }],
+  totePreview: {
+    logoSize: { type: Number, default: 20 },
+    logoPosition: {
+      x: { type: Number, default: 50 },
+      y: { type: Number, default: 75 }
+    },
+    previewImageUrl: { type: String }
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, { timestamps: true });

@@ -176,6 +176,55 @@ router.put('/:id/palette', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// Update tote preview information
+router.put('/:id/tote-preview', authenticateToken, async (req, res) => {
+  try {
+    const { totePreview } = req.body;
+    
+    if (!totePreview || typeof totePreview !== 'object') {
+      return res.status(400).json({ success: false, message: 'Valid tote preview object is required' });
+    }
+    
+    // Validate totePreview structure
+    if (totePreview.logoSize === undefined || 
+        !totePreview.logoPosition || 
+        totePreview.logoPosition.x === undefined || 
+        totePreview.logoPosition.y === undefined) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Tote preview must include logoSize and logoPosition (x, y)' 
+      });
+    }
+    
+    const logoReview = await LogoReview.findById(req.params.id);
+    
+    if (!logoReview) {
+      return res.status(404).json({ success: false, message: 'Logo review not found' });
+    }
+    
+    // Update the tote preview information
+    logoReview.totePreview = {
+      logoSize: totePreview.logoSize,
+      logoPosition: {
+        x: totePreview.logoPosition.x,
+        y: totePreview.logoPosition.y
+      },
+      previewImageUrl: totePreview.previewImageUrl || ''
+    };
+    
+    await logoReview.save();
+    
+    res.json({ 
+      success: true, 
+      message: 'Tote preview updated successfully', 
+      data: logoReview 
+    });
+  } catch (error) {
+    console.error('Error updating tote preview:', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
 // Create a new logo review
 router.post('/', authenticateToken, async (req, res) => {
   try {
@@ -203,7 +252,15 @@ router.post('/', authenticateToken, async (req, res) => {
       status: 'PENDING',
       checks: [],
       comments: [],
-      palette: []
+      palette: [],
+      totePreview: {
+        logoSize: 20,
+        logoPosition: {
+          x: 50,
+          y: 75
+        },
+        previewImageUrl: originalUrl
+      }
     });
     
     await newLogoReview.save();
