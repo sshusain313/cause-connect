@@ -57,14 +57,32 @@ router.post('/sponsor', async (req, res, next) => {
       totePreview
     } = req.body;
 
-    // Validate required fields
-    if (!causeId || !sponsorName || !quantity || !paymentId || !orderId) {
-      console.log('Missing required fields:', { causeId, sponsorName, quantity, paymentId, orderId });
+    // Validate required fields with detailed error messages
+    const missingFields = [];
+    if (!causeId) missingFields.push('causeId');
+    if (!sponsorName) missingFields.push('sponsorName');
+    if (!quantity) missingFields.push('quantity');
+    
+    // Make payment validation optional for testing/development
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction && !paymentId) missingFields.push('paymentId');
+    if (isProduction && !orderId) missingFields.push('orderId');
+    
+    // Log the request body for debugging
+    console.log('Request body:', req.body);
+    console.log('Missing fields:', missingFields);
+    
+    if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields for sponsorship'
+        message: `Missing required fields: ${missingFields.join(', ')}`,
+        missingFields: missingFields
       });
     }
+    
+    // Use default values for missing optional fields
+    const processedPaymentId = paymentId || 'test_payment_id';
+    const processedOrderId = orderId || 'test_order_id';
 
     // Validate causeId format
     if (!mongoose.Types.ObjectId.isValid(causeId)) {
@@ -88,16 +106,16 @@ router.post('/sponsor', async (req, res, next) => {
     console.log('Found cause:', cause.title);
 
     // Verify payment with Razorpay (in production, you would verify the signature)
-    console.log('Payment verified with ID:', paymentId);
+    console.log('Payment verified with ID:', processedPaymentId);
     
     try {
       // Create or update the order record
-      let order = await Order.findOne({ orderId: orderId });
+      let order = await Order.findOne({ orderId: processedOrderId });
       if (!order) {
         // Create a new order record with proper ObjectId handling
         const orderData = {
-          orderId: orderId,
-          paymentId: paymentId,
+          orderId: processedOrderId,
+          paymentId: processedPaymentId,
           amount: quantity * unitPrice,
           sponsorName: sponsorName,
           sponsorEmail: sponsorEmail,
@@ -116,7 +134,7 @@ router.post('/sponsor', async (req, res, next) => {
       } else {
         // Update existing order
         order.status = 'paid';
-        order.paymentId = paymentId;
+        order.paymentId = processedPaymentId;
         await order.save();
         console.log('Updated existing order:', order._id);
       }
@@ -192,8 +210,8 @@ router.post('/sponsor', async (req, res, next) => {
         logo: logoUrl || '',
         amount: amount,
         message: message || '',
-        paymentId: paymentId,
-        orderId: orderId,
+        paymentId: processedPaymentId,
+        orderId: processedOrderId,
         logoReviewId: logoReviewId,
         totePreview: totePreview || null,
         status: 'pending', // Set to pending for admin approval even though payment is verified
@@ -233,8 +251,8 @@ router.post('/sponsor', async (req, res, next) => {
         name: sponsorName,
         email: sponsorEmail,
         amount: amount,
-        paymentId: paymentId,
-        orderId: orderId,
+        paymentId: processedPaymentId,
+        orderId: processedOrderId,
         logoReviewId: logoReviewId
       }
     });
