@@ -134,10 +134,32 @@ router.post('/sponsor', async (req, res, next) => {
     let logoReviewId = null;
     if (logoUrl && totePreview) {
       try {
-        // Create a new logo review
+        // First create a temporary sponsor document for reference
+        const User = require('../models/User');
+        let sponsorUser;
+        
+        // Try to find a user with the sponsor's email
+        if (sponsorEmail) {
+          sponsorUser = await User.findOne({ email: sponsorEmail });
+        }
+        
+        // If no user found, create a temporary one
+        if (!sponsorUser) {
+          sponsorUser = new User({
+            name: sponsorName,
+            email: sponsorEmail,
+            role: 'sponsor',
+            // Set a temporary password - in a real app you'd handle this differently
+            password: Math.random().toString(36).substring(2, 15)
+          });
+          await sponsorUser.save();
+          console.log('Created temporary sponsor user:', sponsorUser._id);
+        }
+        
+        // Create a new logo review with proper references
         const logoReview = new LogoReview({
           campaignId: new ObjectId(causeId),
-          sponsorId: new ObjectId(), // Use a temporary ObjectId since we don't have a real sponsor ID yet
+          sponsorId: sponsorUser._id,
           originalUrl: logoUrl,
           status: 'PENDING',
           totePreview: {

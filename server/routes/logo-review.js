@@ -7,7 +7,10 @@ const mongoose = require('mongoose');
 // Get a specific logo review by ID
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const logoReview = await LogoReview.findById(req.params.id);
+    // Use populate to get the campaign and sponsor information
+    const logoReview = await LogoReview.findById(req.params.id)
+      .populate('campaignId', 'title description') // Populate campaign with title and description
+      .populate('sponsorId', 'name email'); // Populate sponsor with name and email
     
     if (!logoReview) {
       return res.status(404).json({ success: false, message: 'Logo review not found' });
@@ -41,6 +44,29 @@ router.get('/:id', authenticateToken, async (req, res) => {
                     sponsor.totePreview.updatedAt > logoReview.totePreview.updatedAt))) {
                 logoReview.totePreview = sponsor.totePreview;
                 await logoReview.save();
+              }
+              
+              // If campaign or sponsor info is missing, use the cause and sponsor info
+              if (!logoReview.campaignId || typeof logoReview.campaignId !== 'object' || !logoReview.campaignId.title) {
+                // Update the campaign ID to point to the cause
+                logoReview.campaignId = cause._id;
+                await logoReview.save();
+                
+                // Add the cause info to the response
+                logoReview.campaignId = {
+                  _id: cause._id,
+                  title: cause.title,
+                  description: cause.description
+                };
+              }
+              
+              if (!logoReview.sponsorId || typeof logoReview.sponsorId !== 'object' || !logoReview.sponsorId.name) {
+                // Add the sponsor info to the response
+                logoReview.sponsorId = {
+                  _id: sponsor._id || new mongoose.Types.ObjectId(),
+                  name: sponsor.name,
+                  email: sponsor.email
+                };
               }
             }
           }
