@@ -13,6 +13,44 @@ router.get('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Logo review not found' });
     }
     
+    // Check if this logo review is associated with a sponsor in any cause
+    if (logoReview._id) {
+      try {
+        // Import the Cause model
+        const Cause = require('../models/Cause');
+        
+        // Find causes that have this logo review ID in their sponsors array
+        const causes = await Cause.find({
+          'sponsors.logoReviewId': logoReview._id
+        });
+        
+        // If we found any causes with this logo review ID
+        if (causes.length > 0) {
+          // Find the specific sponsor with this logo review ID
+          for (const cause of causes) {
+            const sponsor = cause.sponsors.find(s => 
+              s.logoReviewId && s.logoReviewId.toString() === logoReview._id.toString()
+            );
+            
+            if (sponsor && sponsor.totePreview) {
+              // If the sponsor has tote preview data and the logo review doesn't,
+              // or if the sponsor's data is more recent, use it
+              if (!logoReview.totePreview || 
+                  (sponsor.totePreview.updatedAt && 
+                   (!logoReview.totePreview.updatedAt || 
+                    sponsor.totePreview.updatedAt > logoReview.totePreview.updatedAt))) {
+                logoReview.totePreview = sponsor.totePreview;
+                await logoReview.save();
+              }
+            }
+          }
+        }
+      } catch (causeError) {
+        console.error('Error fetching sponsor information:', causeError);
+        // Continue with the response even if there's an error fetching sponsor info
+      }
+    }
+    
     res.json({ success: true, data: logoReview });
   } catch (error) {
     console.error('Error fetching logo review:', error);
@@ -202,17 +240,58 @@ router.put('/:id/tote-preview', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Logo review not found' });
     }
     
-    // Update the tote preview information
+    // Update the tote preview information with timestamp
     logoReview.totePreview = {
       logoSize: totePreview.logoSize,
       logoPosition: {
         x: totePreview.logoPosition.x,
         y: totePreview.logoPosition.y
       },
-      previewImageUrl: totePreview.previewImageUrl || ''
+      previewImageUrl: totePreview.previewImageUrl || '',
+      updatedAt: new Date()
     };
     
     await logoReview.save();
+    
+    // Also update the tote preview information in the cause collection if this logo review is associated with a sponsor
+    try {
+      // Import the Cause model
+      const Cause = require('../models/Cause');
+      
+      // Find causes that have this logo review ID in their sponsors array
+      const causes = await Cause.find({
+        'sponsors.logoReviewId': logoReview._id
+      });
+      
+      // If we found any causes with this logo review ID
+      if (causes.length > 0) {
+        for (const cause of causes) {
+          // Find the index of the sponsor with this logo review ID
+          const sponsorIndex = cause.sponsors.findIndex(s => 
+            s.logoReviewId && s.logoReviewId.toString() === logoReview._id.toString()
+          );
+          
+          if (sponsorIndex !== -1) {
+            // Update the sponsor's tote preview information
+            cause.sponsors[sponsorIndex].totePreview = {
+              logoSize: totePreview.logoSize,
+              logoPosition: {
+                x: totePreview.logoPosition.x,
+                y: totePreview.logoPosition.y
+              },
+              previewImageUrl: totePreview.previewImageUrl || '',
+              updatedAt: new Date()
+            };
+            
+            await cause.save();
+            console.log(`Updated tote preview for sponsor in cause ${cause._id}`);
+          }
+        }
+      }
+    } catch (causeError) {
+      console.error('Error updating sponsor tote preview in cause:', causeError);
+      // Continue with the response even if there's an error updating the cause
+    }
     
     res.json({ 
       success: true, 

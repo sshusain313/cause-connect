@@ -24,6 +24,23 @@ const SponsorSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  logoReviewId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'LogoReview'
+  },
+  totePreview: {
+    logoSize: { type: Number, default: 20 },
+    logoPosition: {
+      x: { type: Number, default: 50 },
+      y: { type: Number, default: 75 }
+    },
+    previewImageUrl: { type: String }
+  },
+  email: String,
+  phone: String,
+  message: String,
+  paymentId: String,
+  orderId: String,
   createdAt: {
     type: Date,
     default: Date.now

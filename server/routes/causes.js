@@ -647,7 +647,9 @@ router.post('/sponsor', async (req, res, next) => {
       logoUrl,
       message,
       paymentId,
-      orderId
+      orderId,
+      logoReviewId,
+      totePreview
     } = req.body;
 
     // Validate required fields
@@ -735,6 +737,8 @@ router.post('/sponsor', async (req, res, next) => {
         message: message || '',
         paymentId: paymentId,
         orderId: orderId,
+        logoReviewId: logoReviewId || null,
+        totePreview: totePreview || null,
         status: 'pending', // Set to pending for admin approval even though payment is verified
         createdAt: new Date()
       };

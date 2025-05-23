@@ -40,7 +40,8 @@ const logoReviewSchema = new mongoose.Schema({
       x: { type: Number, default: 50 },
       y: { type: Number, default: 75 }
     },
-    previewImageUrl: { type: String }
+    previewImageUrl: { type: String },
+    updatedAt: { type: Date, default: Date.now }
   },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
