@@ -24,6 +24,7 @@ const app = express();
 const allowedOrigins = [
   'https://cause-connect-app.windsurf.build',
   'https://causebg.netlify.app',
+  'https://cause-connect-application.windsurf.build',
   'http://localhost:5173',
   'http://localhost:3000',
   'http://localhost:8081'
